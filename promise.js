@@ -21,7 +21,7 @@ class APromise {
 
   then(onFulfilled, onRejected) {
     const newPromise = new APromise(() => {})
-    handle(this, { onFulfilled, onRejected })
+    handle(this, { onFulfilled, onRejected, newPromise })
     return newPromise
   }
 }
@@ -74,6 +74,11 @@ function doResolve(promise, executor) {
 // - queue it for later use if the promise is PENDING
 // - call the handler if the promise is not PENDING
 function handle(promise, handler) {
+  // take the state of the innermost promise
+  while (promise.value instanceof APromise) {
+    promise = promise.value
+  }
+
   if (promise.state === PromiseState.Pending) {
     promise.queue.push(handler)
   } else {
@@ -82,9 +87,16 @@ function handle(promise, handler) {
 }
 
 function handleResolved(promise, handler) {
-  const { onFulfilled, onRejected } = handler
+  const { onFulfilled, onRejected, newPromise } = handler
   const cb = promise.state === PromiseState.Fulfilled ? onFulfilled : onRejected
-  cb(promise.value)
+
+  // execute the handler and transition according to the rules
+  try {
+    const value = cb(promise.value)
+    fulfill(newPromise, value)
+  } catch (error) {
+    reject(newPromise, error)
+  }
 }
 
 module.exports = { APromise }
