@@ -87,16 +87,30 @@ function handle(promise, handler) {
 }
 
 function handleResolved(promise, handler) {
-  const { onFulfilled, onRejected, newPromise } = handler
-  const cb = promise.state === PromiseState.Fulfilled ? onFulfilled : onRejected
+  setImmediate(() => {
+    const { onFulfilled, onRejected, newPromise } = handler
+    const cb =
+      promise.state === PromiseState.Fulfilled ? onFulfilled : onRejected
 
-  // execute the handler and transition according to the rules
-  try {
-    const value = cb(promise.value)
-    fulfill(newPromise, value)
-  } catch (error) {
-    reject(newPromise, error)
-  }
+    // resolve immediately if the handler is not a function
+    if (typeof cb !== 'function') {
+      if (promise.state === PromiseState.Fulfilled) {
+        fulfill(newPromise, promise.value)
+      } else {
+        reject(newPromise, promise.value)
+      }
+
+      return
+    }
+
+    // execute the handler and transition according to the rules
+    try {
+      const value = cb(promise.value)
+      fulfill(newPromise, value)
+    } catch (error) {
+      reject(newPromise, error)
+    }
+  })
 }
 
 module.exports = { APromise }
