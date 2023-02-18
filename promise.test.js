@@ -141,15 +141,15 @@ describe('async executor', () => {
     })
     promise.then(null, onRejected)
 
+    // should not be called immediately
+    expect(onRejected.mock.calls.length).toBe(0)
+
     setTimeout(() => {
       // should have been called once
       expect(onRejected.mock.calls.length).toBe(1)
       expect(onRejected.mock.calls[0][0]).toBe(reason)
       promise.then(null, onRejected)
     }, 5)
-
-    // should not be called immediately
-    expect(onRejected.mock.calls.length).toBe(0)
 
     setTimeout(() => {
       // should have been called twice
