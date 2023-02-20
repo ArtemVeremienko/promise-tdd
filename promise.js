@@ -28,6 +28,32 @@ class APromise {
 
 // fulfill with `value`
 function fulfill(promise, value) {
+  if (value === promise) {
+    return reject(promise, new TypeError())
+  }
+
+  if (value && (typeof value === 'object' || typeof value === 'function')) {
+    let then
+    try {
+      then = value.then
+    } catch (error) {
+      return reject(promise, error)
+    }
+
+    // promise
+    if (then === promise.then && promise instanceof APromise) {
+      promise.state = PromiseState.Fulfilled
+      promise.value = value
+      return finale(promise)
+    }
+
+    // thenable
+    if (typeof then === 'function') {
+      return doResolve(promise, then.bind(value))
+    }
+  }
+
+  // primitive
   promise.state = PromiseState.Fulfilled
   promise.value = value
   finale(promise)
@@ -74,14 +100,19 @@ function doResolve(promise, executor) {
 // - queue it for later use if the promise is PENDING
 // - call the handler if the promise is not PENDING
 function handle(promise, handler) {
-  // take the state of the innermost promise
-  while (promise.value instanceof APromise) {
+  // take the state of the returned promise
+  while (
+    promise.state !== PromiseState.Rejected &&
+    promise.value instanceof APromise
+  ) {
     promise = promise.value
   }
 
   if (promise.state === PromiseState.Pending) {
+    // queue if PENDING
     promise.queue.push(handler)
   } else {
+    // execute handler (after the event loop)
     handleResolved(promise, handler)
   }
 }

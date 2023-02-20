@@ -224,19 +224,19 @@ describe('async handlers', () => {
 
   it('if a handler return a promise resolved in the future, the previous promise should adopt its value', (done) => {
     const f1 = jest.fn()
-    new APromise((resolve) => setTimeout(resolve, 0))
+    new APromise((fulfill) => setTimeout(fulfill, 0))
       .then(() => new APromise((resolve) => setTimeout(resolve, 0, value)))
       .then(f1)
 
     setTimeout(() => {
-      expect(f1.mock.calls.length).toBe(1)
-      expect(f1.mock.calls[0][0]).toBe(value)
+      expect(f1).toBeCalled(1)
+      expect(f1).toBeCalledWith(value)
       done()
     }, 10)
   })
 })
 
-describe('invalid handlers', () => {
+describe('additional cases', () => {
   it('works with invalid handlers (fulfill)', async () => {
     const f1 = jest.fn()
     const p = new APromise((fulfill) => fulfill(value))
@@ -256,10 +256,8 @@ describe('invalid handlers', () => {
     expect(r1.mock.calls.length).toBe(1)
     expect(r1.mock.calls[0][0]).toBe(reason)
   })
-})
 
-describe('execute the handlers after the event loop', () => {
-  it('the promise observers are called after the event loop', (done) => {
+  it('execute the handlers after the event loop', (done) => {
     const f1 = jest.fn()
     let resolved = false
 
@@ -274,6 +272,51 @@ describe('execute the handlers after the event loop', () => {
       expect(f1).toBeCalled()
       expect(f1.mock.calls[0][0]).toBe(value)
       expect(resolved).toBe(true)
+      done()
+    }, 10)
+  })
+
+  it('rejects with a resolved promise', (done) => {
+    const reason = new APromise((fulfill) => fulfill(value))
+    const r1 = jest.fn()
+    const p = new APromise((fulfill) => fulfill())
+      .then(() => {
+        throw reason
+      })
+      .then(null, r1)
+
+    expect(r1).not.toHaveBeenCalled()
+
+    setTimeout(() => {
+      expect(r1).toHaveBeenCalled()
+      expect(r1).toHaveBeenCalledWith(reason)
+      done()
+    }, 10)
+  })
+
+  it('should throw when attempted to be resolved with itself', (done) => {
+    const r1 = jest.fn()
+    const p = new APromise((fulfill) => fulfill())
+    const q = p.then(() => q)
+    q.then(null, r1)
+
+    setTimeout(() => {
+      expect(r1).toBeCalled()
+      expect(r1.mock.calls[0][0]).toBeInstanceOf(TypeError)
+      done()
+    }, 10)
+  })
+
+  it('should work with thenables', (done) => {
+    const thenable = {
+      then: (fulfill) => fulfill(value),
+    }
+    const f1 = jest.fn()
+    new APromise((fulfill) => fulfill(value)).then(() => thenable).then(f1)
+
+    setTimeout(() => {
+      expect(f1).toBeCalled()
+      expect(f1).toBeCalledWith(value)
       done()
     }, 10)
   })
